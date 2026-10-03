@@ -12,6 +12,11 @@ type Log struct {
 	Message string `json:"message"`
 }
 
+type LogResponse struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
 func main() {
 	http.HandleFunc("/logs", logHandler)
 
@@ -39,6 +44,10 @@ func logHandler(w http.ResponseWriter, r *http.Request) {
 		incomingLog.Message,
 	)
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Log received"))
+	var response LogResponse
+	response.Status = "success"
+	response.Message = "Log received"
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
