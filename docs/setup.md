@@ -15,3 +15,11 @@ go.sum :
 
 and go.sum will contain checksums that help Go verify what it downloaded.
 
+go mod tidy :
+
+accuratly matches the sum file and then mod file for the dependencies
+
+psql --version
+psql (PostgreSQL) 18.6
+
+
