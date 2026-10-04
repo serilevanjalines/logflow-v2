@@ -29,11 +29,22 @@ func main() {
 }
 
 func logHandler(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodPost {
+    http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+    return
+ }	
+
 	var incomingLog Log
 
 	err := json.NewDecoder(r.Body).Decode(&incomingLog)
 	if err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if incomingLog.Service == "" || incomingLog.Level == "" || incomingLog.Message == "" {
+		http.Error(w, "Missing required fields", http.StatusBadRequest)
 		return
 	}
 
@@ -45,7 +56,7 @@ func logHandler(w http.ResponseWriter, r *http.Request) {
 	)
 
 	var response LogResponse
-	response.Status = "success"
+	response.Status = "accepted"
 	response.Message = "Log received"
 
 	w.Header().Set("Content-Type", "application/json")
