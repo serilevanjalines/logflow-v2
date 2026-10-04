@@ -4,9 +4,14 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 type Log struct {
+	ID 	    string `json:"id"`
+	Timestamp time.Time `json:"timestamp"`
 	Service string `json:"service"`
 	Level   string `json:"level"`
 	Message string `json:"message"`
@@ -16,6 +21,8 @@ type LogResponse struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
 }
+
+
 
 func main() {
 	http.HandleFunc("/logs", logHandler)
@@ -27,6 +34,9 @@ func main() {
 		log.Fatal(err)
 	}
 }
+
+
+
 
 func logHandler(w http.ResponseWriter, r *http.Request) {
 
@@ -49,6 +59,8 @@ func logHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	incomingLog.Message = scrubPII(incomingLog.Message)
+	incomingLog.ID = uuid.New().String()
+	incomingLog.Timestamp = time.Now()
 	
 	log.Printf(
 		"service=%s level=%s message=%s",
