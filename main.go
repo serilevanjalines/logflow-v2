@@ -48,6 +48,8 @@ func logHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	incomingLog.Message = scrubPII(incomingLog.Message)
+	
 	log.Printf(
 		"service=%s level=%s message=%s",
 		incomingLog.Service,
@@ -56,6 +58,7 @@ func logHandler(w http.ResponseWriter, r *http.Request) {
 	)
 
 	var response LogResponse
+
 	response.Status = "accepted"
 	response.Message = "Log received"
 
