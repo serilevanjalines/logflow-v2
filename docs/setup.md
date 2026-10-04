@@ -23,3 +23,4 @@ psql --version
 psql (PostgreSQL) 18.6
 
 
+gofmt -w main.go

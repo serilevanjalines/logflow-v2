@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type Log struct {
@@ -24,11 +25,14 @@ type LogResponse struct {
 }
 
 func main() {
-	http.HandleFunc("/logs", logHandler)
 
 	conn := connectDB()
 
 	defer conn.Close(context.Background())
+
+	http.HandleFunc("/logs", func(w http.ResponseWriter, r *http.Request) {
+		logHandler(w, r, conn)
+	})
 
 	log.Println("LogFlow listening on :8080")
 
@@ -39,7 +43,7 @@ func main() {
 
 }
 
-func logHandler(w http.ResponseWriter, r *http.Request) {
+func logHandler(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
 
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -62,6 +66,22 @@ func logHandler(w http.ResponseWriter, r *http.Request) {
 	incomingLog.Message = scrubPII(incomingLog.Message)
 	incomingLog.ID = uuid.New().String()
 	incomingLog.Timestamp = time.Now()
+
+	_, err = conn.Exec(
+		context.Background(),
+		`INSERT INTO logs (id, timestamp, service, level, message)
+	 VALUES ($1, $2, $3, $4, $5)`,
+		incomingLog.ID,
+		incomingLog.Timestamp,
+		incomingLog.Service,
+		incomingLog.Level,
+		incomingLog.Message,
+	)
+
+	if err != nil {
+		http.Error(w, "Failed to store log", http.StatusInternalServerError)
+		return
+	}
 
 	log.Printf(
 		"id=%s timestamp=%s service=%s level=%s message=%s",

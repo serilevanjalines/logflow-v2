@@ -17,7 +17,7 @@ func connectDB() *pgx.Conn {
 	}
 
 	databaseURL := os.Getenv("DATABASE_URL")
-
+	
 	conn, err := pgx.Connect(context.Background(), databaseURL)
 
 	if err != nil {
