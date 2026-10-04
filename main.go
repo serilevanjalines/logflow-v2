@@ -45,6 +45,11 @@ func main() {
 
 func logHandler(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
 
+	if r.Method == http.MethodGet {
+		getLogs(w, r, conn)
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -99,4 +104,47 @@ func logHandler(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+
+
+func getLogs(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
+	
+	rows, err := conn.Query(
+		context.Background(),
+		`SELECT id, timestamp, service, level, message
+		 FROM logs
+		 ORDER BY timestamp DESC`,
+	)
+
+	if err != nil {
+		http.Error(w, "Failed to fetch logs", http.StatusInternalServerError)
+		return
+	}
+
+	defer rows.Close()
+
+	var logs []Log
+
+	for rows.Next() {
+		var logEntry Log
+
+		err := rows.Scan(
+			&logEntry.ID,
+			&logEntry.Timestamp,
+			&logEntry.Service,
+			&logEntry.Level,
+			&logEntry.Message,
+		)
+
+		if err != nil {
+			http.Error(w, "Failed to read log", http.StatusInternalServerError)
+			return
+		}
+
+		logs = append(logs, logEntry)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(logs)
 }
