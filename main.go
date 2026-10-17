@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -120,6 +121,8 @@ func getLogs(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
 
 	service := r.URL.Query().Get("service")
 	level := r.URL.Query().Get("level")
+	from := r.URL.Query().Get("from")
+	to := r.URL.Query().Get("to")
 
 	query := `
     SELECT id, timestamp, service, level, message
@@ -127,20 +130,52 @@ func getLogs(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
 `
 
 	args := []any{}
+	conditions := []string{}
 
 	if service != "" {
-		query += " WHERE service = $1"
+		conditions = append(conditions, "service = $1")
 		args = append(args, service)
 	}
 
 	if level != "" {
-		if service == "" {
-			query += " WHERE level = $1"
-		} else {
-			query += " AND level = $2"
+		conditions = append(conditions, fmt.Sprintf("level = $%d", len(args)+1))
+		args = append(args, level)
+	}
+
+	if from != "" {
+		fromTime, err := time.Parse(time.RFC3339, from)
+
+		if err != nil {
+			http.Error(w, "Invalid from timestamp", http.StatusBadRequest)
+			return
 		}
 
-		args = append(args, level)
+		conditions = append(
+			conditions,
+			fmt.Sprintf("timestamp >= $%d", len(args)+1),
+		)
+
+		args = append(args, fromTime)
+	}
+
+	if to != "" {
+		toTime, err := time.Parse(time.RFC3339, to)
+
+		if err != nil {
+			http.Error(w, "Invalid to timestamp", http.StatusBadRequest)
+			return
+		}
+
+		conditions = append(
+			conditions,
+			fmt.Sprintf("timestamp <= $%d", len(args)+1),
+		)
+
+		args = append(args, toTime)
+	}
+
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
 	rows, err := conn.Query(
