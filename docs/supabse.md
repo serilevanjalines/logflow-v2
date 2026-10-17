@@ -30,3 +30,13 @@ defer cancel()
 Then PostgreSQL gets only 5 seconds to respond.
 
 But don't worry about that yet.
+
+
+
+3."I have a database connection. When main() is finished, clean it up."
+        	defer conn.Close(context.Background())
+
+
+4.Query() → rows → multiple results
+QueryRow() → row → one result
+And $1 gets replaced safely by the id variable.

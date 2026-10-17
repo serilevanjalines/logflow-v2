@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,6 +35,10 @@ func main() {
 		logHandler(w, r, conn)
 	})
 
+	http.HandleFunc("/logs/", func(w http.ResponseWriter, r *http.Request) {
+		logHandler(w, r, conn)
+	})
+
 	log.Println("LogFlow listening on :8080")
 
 	err := http.ListenAndServe(":8080", nil)
@@ -44,6 +49,11 @@ func main() {
 }
 
 func logHandler(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
+
+	if strings.HasPrefix(r.URL.Path, "/logs/") && r.Method == http.MethodGet {
+		getLogByID(w, r, conn)
+		return
+	}
 
 	if r.Method == http.MethodGet {
 		getLogs(w, r, conn)
@@ -106,15 +116,37 @@ func logHandler(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
 	json.NewEncoder(w).Encode(response)
 }
 
-
-
 func getLogs(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
-	
+
+	service := r.URL.Query().Get("service")
+	level := r.URL.Query().Get("level")
+
+	query := `
+    SELECT id, timestamp, service, level, message
+    FROM logs
+`
+
+	args := []any{}
+
+	if service != "" {
+		query += " WHERE service = $1"
+		args = append(args, service)
+	}
+
+	if level != "" {
+		if service == "" {
+			query += " WHERE level = $1"
+		} else {
+			query += " AND level = $2"
+		}
+
+		args = append(args, level)
+	}
+
 	rows, err := conn.Query(
 		context.Background(),
-		`SELECT id, timestamp, service, level, message
-		 FROM logs
-		 ORDER BY timestamp DESC`,
+		query,
+		args...,
 	)
 
 	if err != nil {
@@ -147,4 +179,46 @@ func getLogs(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(logs)
+}
+
+func getLogByID(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
+
+	var foundLog Log
+
+	id := strings.TrimPrefix(r.URL.Path, "/logs/")
+
+	_, err1 := uuid.Parse(id)
+	if err1 != nil {
+		http.Error(w, "Invalid log ID", http.StatusBadRequest)
+		return
+	}
+
+	row := conn.QueryRow(
+		context.Background(),
+		`SELECT id, timestamp, service, level, message
+     FROM logs
+     WHERE id = $1`,
+		id,
+	)
+
+	err := row.Scan(
+		&foundLog.ID,
+		&foundLog.Timestamp,
+		&foundLog.Service,
+		&foundLog.Level,
+		&foundLog.Message,
+	)
+
+	if err == pgx.ErrNoRows {
+		http.Error(w, "Log not found", http.StatusNotFound)
+		return
+	}
+
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(foundLog)
 }
