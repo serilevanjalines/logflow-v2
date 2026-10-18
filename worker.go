@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"time"
 	"log"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -12,6 +12,7 @@ func logWorker(conn *pgx.Conn) {
 
 	for {
 		incomingLog := <-logQueue
+
 		success := false
 
 		log.Println("Worker received log:", incomingLog.ID)

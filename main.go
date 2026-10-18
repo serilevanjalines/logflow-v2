@@ -90,8 +90,13 @@ func logHandler(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
 	incomingLog.ID = uuid.New().String()
 	incomingLog.Timestamp = time.Now()
 
-	logQueue <- incomingLog
+	select {
+	case logQueue <- incomingLog:
 
+	default:
+		http.Error(w, "Log queue is full", http.StatusServiceUnavailable)
+		return
+	}
 
 	log.Printf(
 		"id=%s timestamp=%s service=%s level=%s message=%s",
