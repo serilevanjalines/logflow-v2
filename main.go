@@ -27,6 +27,7 @@ type LogResponse struct {
 }
 
 var logQueue = make(chan Log, 100)
+var failedQueue = make(chan Log, 100)
 
 func main() {
 

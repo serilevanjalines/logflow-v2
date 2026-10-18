@@ -9,8 +9,11 @@ import (
 )
 
 func logWorker(conn *pgx.Conn) {
+
 	for {
 		incomingLog := <-logQueue
+		success := false
+
 		log.Println("Worker received log:", incomingLog.ID)
 
 		for attempt := 1; attempt <= 3; attempt++ {
@@ -27,6 +30,7 @@ func logWorker(conn *pgx.Conn) {
 			)
 
 			if err == nil {
+				success = true
 				log.Println("Log inserted into database:", incomingLog.ID)
 				break
 			}
@@ -41,6 +45,11 @@ func logWorker(conn *pgx.Conn) {
 			if attempt < 3 {
 				time.Sleep(time.Second)
 			}
+		}
+
+		if !success {
+			log.Println("Failed to insert log after 3 attempts, moving to failed queue:", incomingLog.ID)
+			failedQueue <- incomingLog
 		}
 
 	}
