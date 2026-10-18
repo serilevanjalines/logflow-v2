@@ -26,11 +26,17 @@ type LogResponse struct {
 	Message string `json:"message"`
 }
 
+var logQueue = make(chan Log, 100)
+
 func main() {
 
 	conn := connectDB()
 
 	defer conn.Close(context.Background())
+	//when main eventually returns , deletes the connection to the database
+
+	go logWorker(conn)
+	//Start our worker goroutine and give it access to that DB connection
 
 	http.HandleFunc("/logs", func(w http.ResponseWriter, r *http.Request) {
 		logHandler(w, r, conn)
@@ -83,21 +89,8 @@ func logHandler(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
 	incomingLog.ID = uuid.New().String()
 	incomingLog.Timestamp = time.Now()
 
-	_, err = conn.Exec(
-		context.Background(),
-		`INSERT INTO logs (id, timestamp, service, level, message)
-	 VALUES ($1, $2, $3, $4, $5)`,
-		incomingLog.ID,
-		incomingLog.Timestamp,
-		incomingLog.Service,
-		incomingLog.Level,
-		incomingLog.Message,
-	)
+	logQueue <- incomingLog
 
-	if err != nil {
-		http.Error(w, "Failed to store log", http.StatusInternalServerError)
-		return
-	}
 
 	log.Printf(
 		"id=%s timestamp=%s service=%s level=%s message=%s",
@@ -111,7 +104,7 @@ func logHandler(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
 	var response LogResponse
 
 	response.Status = "accepted"
-	response.Message = "Log received"
+	response.Message = "Log received for Processing"
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
