@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Log struct {
@@ -31,20 +32,22 @@ var failedQueue = make(chan Log, 100)
 
 func main() {
 
-	conn := connectDB()
+	pool := connectDB()
 
-	defer conn.Close(context.Background())
+	defer pool.Close()
 	//when main eventually returns , deletes the connection to the database
 
-	go logWorker(conn)
-	//Start our worker goroutine and give it access to that DB connection
+	for i := 1; i <= 3; i++ {
+		go logWorker(i, pool)
+	}
+	//Start our worker goroutine and give it access to that pool connection
 
 	http.HandleFunc("/logs", func(w http.ResponseWriter, r *http.Request) {
-		logHandler(w, r, conn)
+		logHandler(w, r, pool)
 	})
 
 	http.HandleFunc("/logs/", func(w http.ResponseWriter, r *http.Request) {
-		logHandler(w, r, conn)
+		logHandler(w, r, pool)
 	})
 
 	log.Println("LogFlow listening on :8080")
@@ -56,15 +59,15 @@ func main() {
 
 }
 
-func logHandler(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
+func logHandler(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool) {
 
 	if strings.HasPrefix(r.URL.Path, "/logs/") && r.Method == http.MethodGet {
-		getLogByID(w, r, conn)
+		getLogByID(w, r, pool)
 		return
 	}
 
 	if r.Method == http.MethodGet {
-		getLogs(w, r, conn)
+		getLogs(w, r, pool)
 		return
 	}
 
@@ -116,7 +119,7 @@ func logHandler(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func getLogs(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
+func getLogs(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool) {
 
 	service := r.URL.Query().Get("service")
 	level := r.URL.Query().Get("level")
@@ -177,7 +180,7 @@ func getLogs(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
 		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	rows, err := conn.Query(
+	rows, err := pool.Query(
 		context.Background(),
 		query,
 		args...,
@@ -215,7 +218,7 @@ func getLogs(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
 	json.NewEncoder(w).Encode(logs)
 }
 
-func getLogByID(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
+func getLogByID(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool) {
 
 	var foundLog Log
 
@@ -227,7 +230,7 @@ func getLogByID(w http.ResponseWriter, r *http.Request, conn *pgx.Conn) {
 		return
 	}
 
-	row := conn.QueryRow(
+	row := pool.QueryRow(
 		context.Background(),
 		`SELECT id, timestamp, service, level, message
      FROM logs

@@ -5,21 +5,21 @@ import (
 	"log"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func logWorker(conn *pgx.Conn) {
+func logWorker(id int, pool *pgxpool.Pool){
 
 	for {
 		incomingLog := <-logQueue
 
 		success := false
 
-		log.Println("Worker received log:", incomingLog.ID)
+		log.Printf("Worker %d received log: %s", id, incomingLog.ID)
 
 		for attempt := 1; attempt <= 3; attempt++ {
 
-			_, err := conn.Exec(
+			_, err := pool.Exec(
 				context.Background(),
 				`INSERT INTO logs (id, timestamp, service, level, message)
          VALUES ($1, $2, $3, $4, $5)`,
@@ -32,15 +32,16 @@ func logWorker(conn *pgx.Conn) {
 
 			if err == nil {
 				success = true
-				log.Println("Log inserted into database:", incomingLog.ID)
+				log.Printf("Worker %d inserted log: %s", id, incomingLog.ID)
 				break
 			}
 
 			log.Printf(
-				"Insert failed for %s (attempt %d/3): %v",
+				"Insert failed for %s (attempt %d/3): %v and the worker id is %d",
 				incomingLog.ID,
 				attempt,
 				err,
+				id,
 			)
 
 			if attempt < 3 {
