@@ -79,8 +79,8 @@ Some of the concepts I'm exploring:
 - [x] Queue-full handling / backpressure
 - [x] Multiple workers
 - [x] Graceful shutdown
-- [ ] Redis
-- [ ] Performance benchmarking
+- [x] Redis
+- [x] Performance benchmarking
 - [ ] Prometheus + Grafana
 - [ ] Docker
 - [ ] Kubernetes

@@ -63,34 +63,46 @@ Wait indefinitely.
 └─────────────────────┘
 
 
-encoding part is 
+encoding part is
+
 
 HTTP
- │
- │ JSON
- ▼
-json.Decoder
- │
- ▼
+  │
+  │ JSON
+  ▼
+json.Decode
+  │
+  ▼
 Go Log struct
- │
- │ json.Marshal
- ▼
+  │
+  │ json.Marshal
+  ▼
 JSON
- │
- ▼
+  │
+  ▼
 Redis
- │
- │ BRPOP
- ▼
+  │
+  │ RPOP / BRPOP
+  ▼
 JSON
- │
- │ json.Unmarshal
- ▼
+  │
+  │ json.Unmarshal
+  ▼
 Go Log struct
- │
- ▼
+  │
+  ▼
 processLog()
- │
- ▼
-PostgreSQL
+
+
+
+And if PostgreSQL fails:
+
+
+Go Log struct
+      │
+      │ json.Marshal
+      ▼
+   JSON
+      │
+      ▼
+Redis failedQueue
