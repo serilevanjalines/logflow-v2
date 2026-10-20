@@ -2,7 +2,7 @@ package main
 
 import "regexp"
 
-func scrubPII(message string) string{
+func scrubPII(message string) string {
 	emailPattern := regexp.MustCompile(`[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}`)
 	ipPattern := regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}\b`)
 	cardPattern := regexp.MustCompile(`\b(?:\d[ -]?){13,19}\b`)

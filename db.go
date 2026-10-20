@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/joho/godotenv"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 )
 
 func connectDB() *pgxpool.Pool {
@@ -17,7 +17,7 @@ func connectDB() *pgxpool.Pool {
 	}
 
 	databaseURL := os.Getenv("DATABASE_URL")
-	
+
 	pool, err := pgxpool.New(context.Background(), databaseURL)
 
 	if err != nil {

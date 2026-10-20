@@ -3,18 +3,19 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"sync"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 )
 
 type Log struct {
@@ -31,30 +32,29 @@ type LogResponse struct {
 }
 
 var logQueue = make(chan Log, 100)
-var failedQueue = make(chan Log, 100)
 var shutdown = make(chan struct{})
 
 func main() {
 
 	pool := connectDB()
+	redisClient := connectRedis()
+	_ = redisClient
 
 	defer pool.Close()
-	//when main eventually returns , deletes the connection to the database
 
 	var wg sync.WaitGroup
 	wg.Add(3)
 
 	for i := 1; i <= 3; i++ {
-		go logWorker(i, pool, shutdown, &wg)
+		go logWorker(i, pool, redisClient, shutdown, &wg,)
 	}
-	//Start our worker goroutine and give it access to that pool connection
 
 	http.HandleFunc("/logs", func(w http.ResponseWriter, r *http.Request) {
-		logHandler(w, r, pool)
+		logHandler(w, r, pool, redisClient)
 	})
 
 	http.HandleFunc("/logs/", func(w http.ResponseWriter, r *http.Request) {
-		logHandler(w, r, pool)
+		logHandler(w, r, pool, redisClient)
 	})
 
 	server := &http.Server{
@@ -79,7 +79,7 @@ func main() {
 
 }
 
-func logHandler(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool) {
+func logHandler(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, redisClient *redis.Client) {
 
 	if strings.HasPrefix(r.URL.Path, "/logs/") && r.Method == http.MethodGet {
 		getLogByID(w, r, pool)
@@ -113,11 +113,21 @@ func logHandler(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool) {
 	incomingLog.ID = uuid.New().String()
 	incomingLog.Timestamp = time.Now()
 
-	select {
-	case logQueue <- incomingLog:
+	logData, err := json.Marshal(incomingLog)
 
-	default:
-		http.Error(w, "Log queue is full", http.StatusServiceUnavailable)
+	if err != nil {
+		http.Error(w, "Failed to encode log", http.StatusInternalServerError)
+		return
+	}
+
+	err = redisClient.LPush(
+		context.Background(),
+		"logQueue",
+		logData,
+	).Err()
+
+	if err != nil {
+		http.Error(w, "Failed to queue log", http.StatusServiceUnavailable)
 		return
 	}
 
