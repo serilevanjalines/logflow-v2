@@ -1,4 +1,4 @@
-# LogFlow 
+# LogFlow
 
 A small log ingestion pipeline built in Go.
 
@@ -20,6 +20,7 @@ This is a learning-focused project, not a production-ready logging system.
 - Supports retrieving logs
 - Supports filtering logs by service, level, and time range
 - Handles a full ingestion queue with backpressure
+- Supports graceful worker shutdown
 
 ## Current Architecture
 
@@ -27,20 +28,20 @@ This is a learning-focused project, not a production-ready logging system.
 HTTP Request
      │
      ▼
- Validate + Scrub
+Validate + Scrub
      │
      ▼
- UUID + Timestamp
+UUID + Timestamp
      │
      ▼
- Go Channel
-  (buffer)
+Go Channel
+ (buffer)
      │
      ▼
- Worker Goroutine(s)
+Worker Goroutines
      │
      ▼
- PostgreSQL
+PostgreSQL
      │
      └── retry on failure
 ```
@@ -55,6 +56,7 @@ Some of the concepts I'm exploring:
 - Channels and buffered channels
 - Worker pools
 - Backpressure
+- `select`
 - `sync.WaitGroup`
 - Graceful shutdown
 - PostgreSQL with `pgx`
@@ -75,13 +77,14 @@ Some of the concepts I'm exploring:
 - [x] Database retry mechanism
 - [x] In-memory failed queue
 - [x] Queue-full handling / backpressure
-- [ ] Multiple workers
-- [ ] Graceful shutdown
-- [ ] Performance benchmarking
+- [x] Multiple workers
+- [x] Graceful shutdown
 - [ ] Redis
+- [ ] Performance benchmarking
 - [ ] Prometheus + Grafana
 - [ ] Docker
 - [ ] Kubernetes
+- [ ] CI/CD
 
 ## Why I built it
 
