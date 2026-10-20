@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"sync"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
 	"time"
 
@@ -29,6 +32,7 @@ type LogResponse struct {
 
 var logQueue = make(chan Log, 100)
 var failedQueue = make(chan Log, 100)
+var shutdown = make(chan struct{})
 
 func main() {
 
@@ -37,8 +41,11 @@ func main() {
 	defer pool.Close()
 	//when main eventually returns , deletes the connection to the database
 
+	var wg sync.WaitGroup
+	wg.Add(3)
+
 	for i := 1; i <= 3; i++ {
-		go logWorker(i, pool)
+		go logWorker(i, pool, shutdown, &wg)
 	}
 	//Start our worker goroutine and give it access to that pool connection
 
@@ -50,12 +57,25 @@ func main() {
 		logHandler(w, r, pool)
 	})
 
+	server := &http.Server{
+		Addr: ":8080",
+	}
+
 	log.Println("LogFlow listening on :8080")
 
-	err := http.ListenAndServe(":8080", nil)
-	if err != nil {
-		log.Fatal(err)
-	}
+	go func() {
+		err := server.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt)
+
+	<-signalChan
+	close(shutdown)
+	wg.Wait()
 
 }
 
